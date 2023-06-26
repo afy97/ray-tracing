@@ -1,0 +1,14 @@
+[
+    {
+        "name": "x64",
+        "visualStudio": "9c6a08a0",
+        "visualStudioArchitecture": "x64",
+        "isTrusted": true,
+        "toolchainFile": "D:/Apps/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "preferredGenerator": {
+            "name": "Visual Studio 17 2022",
+            "platform": "x64",
+            "toolset": "host=x64"
+        }
+    }
+]
