@@ -2,8 +2,7 @@
 
 #include "pch.hpp"
 
-class Image
-{
+class Image {
 private:
     GLuint texture;
 

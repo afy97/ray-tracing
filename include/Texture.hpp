@@ -2,11 +2,9 @@
 
 #include "pch.hpp"
 
-class Texture
-{
+class Texture {
 public:
-    struct Color
-    {
+    struct Color {
         uint8_t red;
         uint8_t green;
         uint8_t blue;
@@ -17,7 +15,7 @@ private:
     const int width;
     const int height;
     const int count;
-    Color *buffer;
+    Color* buffer;
     GLuint texture;
 
 public:
@@ -25,7 +23,7 @@ public:
     ~Texture();
 
     void bind_to_program(GLuint shader_program);
-    void update_buffer(const Color *update, int item_count);
+    void update_buffer(const Color* update, int item_count);
 
     GLuint get_texture() const { return texture; }
 };

@@ -26,8 +26,7 @@ Shader::Shader(std::filesystem::path vertex_path, std::filesystem::path fragment
     glCompileShader(vert_shader);
     glGetShaderiv(vert_shader, GL_COMPILE_STATUS, &success);
 
-    if (!success)
-    {
+    if (!success) {
         char log[1024];
         glGetShaderInfoLog(vert_shader, 1024, NULL, log);
         throw std::runtime_error(log);
@@ -38,8 +37,7 @@ Shader::Shader(std::filesystem::path vertex_path, std::filesystem::path fragment
     glCompileShader(frag_shader);
     glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &success);
 
-    if (!success)
-    {
+    if (!success) {
         char log[1024];
         glGetShaderInfoLog(frag_shader, 1024, NULL, log);
         throw std::runtime_error(log);
@@ -51,8 +49,7 @@ Shader::Shader(std::filesystem::path vertex_path, std::filesystem::path fragment
     glLinkProgram(program);
     glGetProgramiv(program, GL_LINK_STATUS, &success);
 
-    if (!success)
-    {
+    if (!success) {
         char log[1024];
         glGetShaderInfoLog(frag_shader, 1024, NULL, log);
         throw std::runtime_error(log);

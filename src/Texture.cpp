@@ -6,15 +6,13 @@ Texture::Texture(int _width, int _height) : width(_width), height(_height), coun
     glGenTextures(1, &texture);
 }
 
-Texture::~Texture()
-{
+Texture::~Texture() {
     delete[] buffer;
 }
 
-void Texture::update_buffer(const Texture::Color *update, int item_count)
+void Texture::update_buffer(const Texture::Color* update, int item_count)
 {
-    if (count < item_count)
-    {
+    if (count < item_count) {
         throw std::runtime_error("Buffer overflow");
     }
 

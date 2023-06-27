@@ -1,16 +1,16 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdlib>
-#include <iostream>
-#include <fstream>
 #include <exception>
-#include <future>
 #include <filesystem>
+#include <fstream>
+#include <functional>
+#include <future>
+#include <iostream>
+#include <iterator>
 #include <string_view>
 #include <vector>
-#include <functional>
-#include <iterator>
-#include <algorithm>
 
 #include "meta/glfw.hpp"
 #include "meta/glm.hpp"

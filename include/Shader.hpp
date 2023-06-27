@@ -2,8 +2,7 @@
 
 #include "pch.hpp"
 
-class Shader
-{
+class Shader {
 private:
     GLuint program;
 

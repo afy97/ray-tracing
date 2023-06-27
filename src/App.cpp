@@ -27,10 +27,8 @@ App::~App()
 
 void App::run()
 {
-    while (!glfwWindowShouldClose(main_window))
-    {
-        for (auto function : command_list)
-        {
+    while (!glfwWindowShouldClose(main_window)) {
+        for (auto function : command_list) {
             function();
         }
 
@@ -44,7 +42,6 @@ void App::add_command(std::function<void()> command)
     command_list.push_back(command);
 }
 
-void App::clear_commands()
-{
+void App::clear_commands() {
     command_list.clear();
 }

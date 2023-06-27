@@ -3,23 +3,22 @@
 #include "pch.hpp"
 
 #include "App.hpp"
-#include "Shader.hpp"
 #include "Canvas.hpp"
 #include "Image.hpp"
+#include "Shader.hpp"
 #include "Texture.hpp"
 
 #include <random>
 
 static constexpr size_t count = 1280 * 720 * 4;
 
-int main(int argc, char const *argv[])
+int main(int argc, char const* argv[])
 {
     std::filesystem::path vrt("D:/Documents/Visual Studio 2022/C++/RayTracing/src/shader/shader.vert");
     std::filesystem::path frg("D:/Documents/Visual Studio 2022/C++/RayTracing/src/shader/shader.frag");
     std::filesystem::path img("C:/Users/Afy/Downloads/512x512.png");
 
-    try
-    {
+    try {
         App app(1280, 720);
         Shader shader(vrt, frg);
         Canvas canvas;
@@ -32,15 +31,29 @@ int main(int argc, char const *argv[])
 
         app.add_command([&]() {
             glClear(GL_COLOR_BUFFER_BIT);
-            
-            for (size_t i = 0; i < count; i++)
-            {
-                array[i] = Texture::Color{
-                    .red = static_cast<uint8_t>(rand() % 255),
-                    .green = static_cast<uint8_t>(rand() % 255),
-                    .blue = static_cast<uint8_t>(rand() % 255),
-                    .alpha = 255,
-                };
+
+            auto thread_count = std::thread::hardware_concurrency();
+            auto partition_size = count / thread_count;
+            std::thread* pool = new std::thread[thread_count];
+
+            for (size_t i = 0; i < thread_count; i++) {
+                pool[i] = std::thread(
+                    [](int size, int offset, Texture::Color data[]) {
+                        srand(time(nullptr));
+                        for (size_t j = 0; j < size; j++) {
+                            data[offset * size + j] = Texture::Color{
+                                .red = static_cast<uint8_t>(rand() % 255),
+                                .green = static_cast<uint8_t>(rand() % 255),
+                                .blue = static_cast<uint8_t>(rand() % 255),
+                                .alpha = 255,
+                            };
+                        }
+                    },
+                    partition_size, i, array);
+            }
+
+            for (size_t i = 0; i < thread_count; i++) {
+                pool[i].join();
             }
 
             texture.update_buffer(array, count);
@@ -55,9 +68,7 @@ int main(int argc, char const *argv[])
         });
 
         app.run();
-    }
-    catch (std::exception e)
-    {
+    } catch (std::exception e) {
         std::cerr << e.what() << std::endl;
         throw e;
     }

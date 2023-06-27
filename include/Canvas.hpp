@@ -2,8 +2,7 @@
 
 #include "pch.hpp"
 
-class Canvas
-{
+class Canvas {
 private:
     GLuint VBO;
     GLuint VAO;

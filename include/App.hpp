@@ -2,10 +2,9 @@
 
 #include "pch.hpp"
 
-class App
-{
+class App {
 private:
-    GLFWwindow *main_window;
+    GLFWwindow* main_window;
     std::future<void> event_loop;
     std::vector<std::function<void()>> command_list;
 
@@ -20,14 +19,12 @@ public:
     template <typename T>
     static void error_check_result(T returned, T expected)
     {
-        if (returned != expected)
-        {
+        if (returned != expected) {
             throw std::runtime_error("Expected value does not match");
         }
     }
 
-    static void error_callback(int error_code, const char *description)
-    {
+    static void error_callback(int error_code, const char* description) {
         throw std::runtime_error(description);
     }
 };
