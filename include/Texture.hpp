@@ -17,6 +17,7 @@ private:
     const int count;
     Color* buffer;
     GLuint texture;
+    std::mutex mutex;
 
 public:
     Texture(int width, int height);

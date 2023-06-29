@@ -8,58 +8,62 @@
 #include "Shader.hpp"
 #include "Texture.hpp"
 
-#include <random>
-
-static constexpr size_t count = 1280 * 720 * 4;
+static constexpr int width = 1280;
+static constexpr int height = 720;
+static constexpr int count = width * height;
 
 int main(int argc, char const* argv[])
 {
-    std::filesystem::path vrt("D:/Documents/Visual Studio 2022/C++/RayTracing/src/shader/shader.vert");
-    std::filesystem::path frg("D:/Documents/Visual Studio 2022/C++/RayTracing/src/shader/shader.frag");
-    std::filesystem::path img("C:/Users/Afy/Downloads/512x512.png");
+    std::filesystem::path vrt("C:/Users/Afy/Documents/Projects/C++/ray-tracing/src/shader/shader.vert");
+    std::filesystem::path frg("C:/Users/Afy/Documents/Projects/C++/ray-tracing/src/shader/shader.frag");
+
+    auto buffer = new Texture::Color[height][width];
 
     try {
-        App app(1280, 720);
+        App app(width, height);
         Shader shader(vrt, frg);
         Canvas canvas;
-        Image image(img);
-        Texture texture(1280, 720);
+        Texture texture(width, height);
 
-        auto array = new Texture::Color[count];
+        auto result = std::async([&]() {
+            auto fov = glm::radians(30.0f);
+            auto per_pixel_angle = fov / height;
 
-        // image.bind_to_program(shader.get_program());
+            glm::vec3 forward(0.0f, 0.0f, -1.0f);
+            glm::vec3 right(1.0f, 0.0f, 0.0f);
+            glm::vec3 up(0.0f, 1.0f, 0.0f);
 
-        app.add_command([&]() {
-            glClear(GL_COLOR_BUFFER_BIT);
+            for (int i = 0; i < height; i++) {
+                float y = i - (height / 2);
+                glm::vec3 v1 = glm::rotate(forward, y * per_pixel_angle, right);
 
-            auto thread_count = std::thread::hardware_concurrency();
-            auto partition_size = count / thread_count;
-            std::thread* pool = new std::thread[thread_count];
+                for (int j = 0; j < width; j++) {
+                    float x = j - (width / 2);
+                    glm::vec3 v2 = glm::rotate(v1, (-x) * per_pixel_angle, up);
+                    glm::vec3 v = v2;
+                    v *= 127.0f;
+                    v += 127.0f;
 
-            for (size_t i = 0; i < thread_count; i++) {
-                pool[i] = std::thread(
-                    [](int size, int offset, Texture::Color data[]) {
-                        srand(time(nullptr));
-                        for (size_t j = 0; j < size; j++) {
-                            data[offset * size + j] = Texture::Color{
-                                .red = static_cast<uint8_t>(rand() % 255),
-                                .green = static_cast<uint8_t>(rand() % 255),
-                                .blue = static_cast<uint8_t>(rand() % 255),
-                                .alpha = 255,
-                            };
-                        }
-                    },
-                    partition_size, i, array);
+                    buffer[i][j] = {
+                        .red = static_cast<uint8_t>(v.x),
+                        .green = static_cast<uint8_t>(v.y),
+                        .blue = static_cast<uint8_t>(v.z),
+                        .alpha = 255,
+                    };
+                }
             }
-
-            for (size_t i = 0; i < thread_count; i++) {
-                pool[i].join();
-            }
-
-            texture.update_buffer(array, count);
         });
 
         app.add_command([&]() {
+            static bool skip_flag = false;
+            if (!skip_flag && result.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready) {
+                texture.update_buffer(&(buffer[0][0]), count);
+                skip_flag = true;
+            }
+        });
+
+        app.add_command([&]() {
+            glClear(GL_COLOR_BUFFER_BIT);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, texture.get_texture());
             glUseProgram(shader.get_program());
@@ -72,6 +76,8 @@ int main(int argc, char const* argv[])
         std::cerr << e.what() << std::endl;
         throw e;
     }
+
+    delete[] buffer;
 
     return EXIT_SUCCESS;
 }

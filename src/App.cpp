@@ -33,7 +33,7 @@ void App::run()
         }
 
         glfwSwapBuffers(main_window);
-        glfwWaitEvents();
+        glfwWaitEventsTimeout(0.2);
     }
 }
 

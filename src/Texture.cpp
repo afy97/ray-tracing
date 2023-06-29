@@ -16,7 +16,7 @@ void Texture::update_buffer(const Texture::Color* update, int item_count)
         throw std::runtime_error("Buffer overflow");
     }
 
-    memcpy_s(buffer, count, update, item_count);
+    memcpy_s(buffer, count * sizeof(Texture::Color), update, item_count * sizeof(Texture::Color));
 
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
