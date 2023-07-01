@@ -7,16 +7,10 @@
 
 class Sphere : public Shape {
 private:
-    glm::vec3 position;
     float radius;
 
 public:
-    Sphere(glm::vec3 _position, float _radius, Material _material)
-        : Shape(_material), position(_position), radius(_radius)
-    {
-    }
-
-    glm::vec3 get_position() const { return position; }
+    Sphere(Material _material, glm::vec3 _position, float _radius) : Shape(_material, _position), radius(_radius) {}
 
     float get_radius() const { return radius; }
 
