@@ -3,6 +3,7 @@
 #include "pch.hpp"
 
 #include "Material.hpp"
+#include "Ray.hpp"
 
 class Shape {
 private:
@@ -17,7 +18,7 @@ public:
 
     glm::vec3 get_position() const { return position; }
 
-    virtual std::tuple<bool, glm::vec3> ray_hit_position(glm::vec3 ray_origin, glm::vec3 ray_direction) = 0;
+    virtual std::tuple<bool, glm::vec3> ray_hit_position(Ray ray) = 0;
 
     virtual glm::vec3 surface_normal(glm::vec3 surface_point) = 0;
 };

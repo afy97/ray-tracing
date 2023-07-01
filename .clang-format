@@ -9,4 +9,8 @@ BraceWrapping:
 DerivePointerAlignment: false
 PointerAlignment: Left
 AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: Inline
+AlignAfterOpenBracket: BlockIndent
+BinPackArguments: false
+BinPackParameters: false
 ...

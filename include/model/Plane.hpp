@@ -1,8 +1,5 @@
 #pragma once
 
-#include "pch.hpp"
-
-#include "Material.hpp"
 #include "Shape.hpp"
 
 class Plane : public Shape {
@@ -15,7 +12,7 @@ public:
     {
     }
 
-    std::tuple<bool, glm::vec3> ray_hit_position(glm::vec3 ray_origin, glm::vec3 ray_direction) override;
+    std::tuple<bool, glm::vec3> ray_hit_position(Ray ray) override;
 
     glm::vec3 surface_normal(glm::vec3 surface_point) override { return normal; }
 };

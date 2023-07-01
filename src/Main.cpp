@@ -10,26 +10,27 @@
 #include "Texture.hpp"
 
 #include "model/Plane.hpp"
+#include "model/Scene.hpp"
 #include "model/Sphere.hpp"
 
-static constexpr int width = 1280;
-static constexpr int height = 720;
+static constexpr int width = 800;
+static constexpr int height = 600;
 static constexpr int count = width * height;
 static constexpr int samples = 64;
 
 int main(int argc, char const* argv[])
 {
-    std::filesystem::path vrt("C:/Users/Afy/Documents/Projects/C++/ray-tracing/src/shader/shader.vert");
-    std::filesystem::path frg("C:/Users/Afy/Documents/Projects/C++/ray-tracing/src/shader/shader.frag");
-
-    std::vector<Texture::Color> buffer(count);
-    std::mutex guard;
-
     try {
+        std::filesystem::path vrt("C:/Users/Afy/Documents/Projects/C++/ray-tracing/src/shader/shader.vert");
+        std::filesystem::path frg("C:/Users/Afy/Documents/Projects/C++/ray-tracing/src/shader/shader.frag");
+
         App app(width, height);
         Shader shader(vrt, frg);
         Canvas canvas;
         Texture texture(width, height);
+
+        std::vector<Texture::Color> buffer(count);
+        std::mutex guard;
 
         float fov = glm::radians(30.0f);
         float per_pixel_angle = fov / height;
@@ -45,103 +46,83 @@ int main(int argc, char const* argv[])
         glm::vec3 origin(0.0f);
 
         Material default_material;
-        Material light_material(glm::vec3(1.0f), 10.0f);
+        Material red_material(glm::vec3(1.0f, 0.33f, 0.33f));
+        Material green_material(glm::vec3(0.33f, 1.0f, 0.33f));
+        Material blue_material(glm::vec3(0.33f, 0.33f, 1.0f));
+        Material emissive_material(glm::vec3(1.0f), 8.0f);
 
-        Plane ground(default_material, -up, up);
-        Plane left_wall(default_material, -right * 4.0f, right);
-        Plane right_wall(default_material, right * 4.0f, -right);
-        Plane back_wall(default_material, forward * 12.0f, -forward);
-        Sphere ball(default_material, forward * 10.0f, 1.0f);
-        Sphere light(light_material, glm::vec3(3.0f, 4.0f, -5.0f), 1.0f);
-
-        std::vector<Shape*> scene;
-        scene.push_back(&ground);
-        scene.push_back(&left_wall);
-        scene.push_back(&back_wall);
-        scene.push_back(&right_wall);
-        scene.push_back(&ball);
-        scene.push_back(&light);
+        Scene scene;
+        scene.add_object(std::make_shared<Plane>(default_material, -up, up));
+        scene.add_object(std::make_shared<Plane>(green_material, -right * 3.0f, right));
+        scene.add_object(std::make_shared<Plane>(red_material, right * 3.0f, -right));
+        scene.add_object(std::make_shared<Plane>(default_material, forward * 11.0f, -forward));
+        scene.add_object(std::make_shared<Sphere>(blue_material, forward * 10.0f, 1.0f));
+        scene.add_object(std::make_shared<Sphere>(emissive_material, glm::vec3(1.0f, 3.0f, -8.0f), 1.0f));
 
         auto result = std::async([&]() {
             std::for_each(std::execution::par, buffer.begin(), buffer.end(), [&](Texture::Color& c) {
-                Shape* debug = &back_wall;
-
                 int index = (&c) - buffer.data();
 
                 float x = (index % width) - (width / 2);
                 float y = (index / width) - (height / 2);
-                float last = f_max;
 
-                Shape* current = nullptr;
-
-                glm::vec3 acc(0.0f);
-                glm::vec3 hit_point = origin;
                 glm::vec3 v_y = glm::rotate(forward, y * per_pixel_angle, right);
                 glm::vec3 v_x = glm::rotate(v_y, (-x) * per_pixel_angle, up);
+                glm::vec3 hit_point = origin;
+                glm::vec3 acc(0.0f);
 
-                for (auto&& shape : scene) {
-                    auto [intersected, intersection] = shape->ray_hit_position(origin, v_x);
+                auto [hit, point, object] = scene.get_surface_intersection(Ray(origin, v_x));
 
-                    if (intersected) {
-                        float next = glm::length(intersection - origin);
+                if (hit) {
+                    float emission = object->get_material().get_emission();
 
-                        if (next < last) {
-                            last = next;
-                            current = shape;
-                            hit_point = intersection;
-                        }
-                    }
-                }
+                    if (0.0f < emission) {
+                        glm::vec3 color = object->get_material().get_color();
+                        glm::vec3 shade = glm::clamp(color * (255.0f * emission), 0.0f, 255.0f);
+                        std::lock_guard lock(guard);
 
-                if (current != nullptr) {
-                    glm::vec3 n = current->surface_normal(hit_point);
+                        buffer[index] = {
+                            .red = static_cast<uint8_t>(shade.r),
+                            .green = static_cast<uint8_t>(shade.g),
+                            .blue = static_cast<uint8_t>(shade.b),
+                            .alpha = 255,
+                        };
+                    } else {
+                        for (size_t i = 0; i < samples; i++) {
+                            glm::vec3 n = object->surface_normal(point);
+                            glm::vec3 w = glm::normalize(glm::vec3(
+                                Random::uniform_float(-1.0f, 1.0f),
+                                Random::uniform_float(-1.0f, 1.0f),
+                                Random::uniform_float(-1.0f, 1.0f)
+                            ));
 
-                    for (size_t i = 0; i < samples; i++) {
-                        glm::vec3 w = glm::normalize(glm::vec3(
-                            Random::uniform_float(-1.0f, 1.0f),
-                            Random::uniform_float(-1.0f, 1.0f),
-                            Random::uniform_float(-1.0f, 1.0f)
-                        ));
+                            float cos_a = glm::dot(w, n);
 
-                        Shape* closest = nullptr;
+                            if (cos_a < 0) {
+                                w = -w;
+                                cos_a = -cos_a;
+                            }
 
-                        float cos_a = glm::dot(w, n);
-                        last = f_max;
+                            auto [bounce, next_point, next_object] =
+                                scene.get_surface_intersection(Ray(point, w), object);
 
-                        if (cos_a < 0) {
-                            w = -w;
-                            cos_a = -cos_a;
-                        }
-
-                        for (auto&& other : scene) {
-                            if (current != other) {
-                                auto [intersected, intersection] = other->ray_hit_position(hit_point, w);
-
-                                if (intersected) {
-                                    float next = glm::length(intersection - hit_point);
-
-                                    if (next < last) {
-                                        closest = other;
-                                        last = next;
-                                    }
-                                }
+                            if (bounce) {
+                                glm::vec3 color = object->get_material().get_color();
+                                float emission = next_object->get_material().get_emission();
+                                acc += (emission * (pi_rsp * p_w_rsp * cos_a)) * color;
                             }
                         }
 
-                        if (closest != nullptr) {
-                            acc += (pi_rsp * p_w_rsp * cos_a) * closest->get_material().get_emmission();
-                        }
+                        glm::vec3 gain = glm::clamp(acc * (255.0f / samples), 0.0f, 255.0f);
+                        std::lock_guard lock(guard);
+
+                        buffer[index] = {
+                            .red = static_cast<uint8_t>(gain.r),
+                            .green = static_cast<uint8_t>(gain.g),
+                            .blue = static_cast<uint8_t>(gain.b),
+                            .alpha = 255,
+                        };
                     }
-
-                    glm::vec3 gain = glm::clamp(acc * (255.0f / samples), 0.0f, 255.0f);
-                    std::lock_guard lock(guard);
-
-                    buffer[index] = {
-                        .red = static_cast<uint8_t>(gain.r),
-                        .green = static_cast<uint8_t>(gain.g),
-                        .blue = static_cast<uint8_t>(gain.b),
-                        .alpha = 255,
-                    };
                 }
             });
         });
