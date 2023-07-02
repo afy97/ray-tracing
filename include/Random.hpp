@@ -4,7 +4,6 @@
 
 class Random {
 private:
-    static thread_local std::random_device dev;
     static thread_local std::default_random_engine rnd;
 
 public:

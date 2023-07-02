@@ -41,3 +41,9 @@ ${PROJECT_NAME}
     PRIVATE
         ${PCH_FILES}
 )
+
+add_custom_command(
+    TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${SRC_DIR}/shaders/shader.vert" "${CMAKE_BINARY_DIR}/$<CONFIG>/shaders/shader.vert"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${SRC_DIR}/shaders/shader.frag" "${CMAKE_BINARY_DIR}/$<CONFIG>/shaders/shader.frag"
+)

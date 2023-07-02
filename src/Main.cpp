@@ -13,16 +13,17 @@
 #include "model/Scene.hpp"
 #include "model/Sphere.hpp"
 
-static constexpr int width = 800;
-static constexpr int height = 600;
+static constexpr int width = 4 * 128;
+static constexpr int height = 3 * 128;
 static constexpr int count = width * height;
-static constexpr int samples = 64;
+static constexpr int samples = 128;
+static constexpr int light_bounces = 3;
 
 int main(int argc, char const* argv[])
 {
     try {
-        std::filesystem::path vrt("C:/Users/Afy/Documents/Projects/C++/ray-tracing/src/shader/shader.vert");
-        std::filesystem::path frg("C:/Users/Afy/Documents/Projects/C++/ray-tracing/src/shader/shader.frag");
+        std::filesystem::path vrt("shaders/shader.vert");
+        std::filesystem::path frg("shaders/shader.frag");
 
         App app(width, height);
         Shader shader(vrt, frg);
@@ -69,7 +70,7 @@ int main(int argc, char const* argv[])
                 glm::vec3 v_y = glm::rotate(forward, y * per_pixel_angle, right);
                 glm::vec3 v_x = glm::rotate(v_y, (-x) * per_pixel_angle, up);
                 glm::vec3 hit_point = origin;
-                glm::vec3 acc(0.0f);
+                glm::vec3 diffuse(0.0f);
 
                 auto [hit, point, object] = scene.get_surface_intersection(Ray(origin, v_x));
 
@@ -78,48 +79,27 @@ int main(int argc, char const* argv[])
 
                     if (0.0f < emission) {
                         glm::vec3 color = object->get_material().get_color();
-                        glm::vec3 shade = glm::clamp(color * (255.0f * emission), 0.0f, 255.0f);
+                        glm::u8vec3 shade = glm::clamp(color * (255.0f * emission), 0.0f, 255.0f);
                         std::lock_guard lock(guard);
 
                         buffer[index] = {
-                            .red = static_cast<uint8_t>(shade.r),
-                            .green = static_cast<uint8_t>(shade.g),
-                            .blue = static_cast<uint8_t>(shade.b),
+                            .red = shade.r,
+                            .green = shade.g,
+                            .blue = shade.b,
                             .alpha = 255,
                         };
                     } else {
-                        for (size_t i = 0; i < samples; i++) {
-                            glm::vec3 n = object->surface_normal(point);
-                            glm::vec3 w = glm::normalize(glm::vec3(
-                                Random::uniform_float(-1.0f, 1.0f),
-                                Random::uniform_float(-1.0f, 1.0f),
-                                Random::uniform_float(-1.0f, 1.0f)
-                            ));
-
-                            float cos_a = glm::dot(w, n);
-
-                            if (cos_a < 0) {
-                                w = -w;
-                                cos_a = -cos_a;
-                            }
-
-                            auto [bounce, next_point, next_object] =
-                                scene.get_surface_intersection(Ray(point, w), object);
-
-                            if (bounce) {
-                                glm::vec3 color = object->get_material().get_color();
-                                float emission = next_object->get_material().get_emission();
-                                acc += (emission * (pi_rsp * p_w_rsp * cos_a)) * color;
-                            }
+                        for (int i = 0; i < samples; i++) {
+                            diffuse += scene.bounce_light(point, object, light_bounces);
                         }
 
-                        glm::vec3 gain = glm::clamp(acc * (255.0f / samples), 0.0f, 255.0f);
+                        glm::u8vec3 gain = glm::clamp(diffuse * (255.0f / samples), 0.0f, 255.0f);
                         std::lock_guard lock(guard);
 
                         buffer[index] = {
-                            .red = static_cast<uint8_t>(gain.r),
-                            .green = static_cast<uint8_t>(gain.g),
-                            .blue = static_cast<uint8_t>(gain.b),
+                            .red = gain.r,
+                            .green = gain.g,
+                            .blue = gain.b,
                             .alpha = 255,
                         };
                     }

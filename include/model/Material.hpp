@@ -10,7 +10,7 @@ private:
 
 public:
     Material(glm::vec3 _color = glm::vec3(1.0f), float _emission_intensity = 0.0f)
-        : color(glm::normalize(_color)), emission_intensity(_emission_intensity)
+        : color(glm::clamp(_color, 0.0f, 1.0f)), emission_intensity(_emission_intensity)
     {
     }
 
