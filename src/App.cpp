@@ -28,7 +28,7 @@ App::~App()
 void App::run()
 {
     while (!glfwWindowShouldClose(main_window)) {
-        for (auto function : command_list) {
+        for (const auto& function : command_list) {
             function();
         }
 

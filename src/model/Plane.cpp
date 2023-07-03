@@ -1,21 +1,22 @@
 #include "model/Plane.hpp"
 
-std::tuple<bool, glm::vec3> Plane::ray_hit_position(Ray ray)
+glm::vec3 Plane::ray_hit_position(Ray ray, bool& hit)
 {
-    float cos_a = glm::dot(ray.get_direction(), normal);
-    float epsilon = std::numeric_limits<float>().epsilon();
+    float cos_a, epsilon, t;
 
-    if (-epsilon < cos_a && cos_a < epsilon) {
-        return {false, glm::vec3()};
+    cos_a = glm::dot(ray.get_direction(), normal);
+    epsilon = std::numeric_limits<float>().epsilon();
+
+    if (epsilon < std::abs(cos_a)) {
+        t = glm::dot(get_position() - ray.get_origin(), normal) / cos_a;
+
+        if ((-0.0f) < t) {
+            hit = true;
+            return ray.get_origin() + (ray.get_direction() * t);
+        }
     }
 
-    glm::vec3 ray_delta = this->get_position() - ray.get_origin();
+    hit = false;
 
-    float t = glm::dot(ray_delta, normal) / cos_a;
-
-    if (t < ((-2) * epsilon)) {
-        return {false, glm::vec3()};
-    }
-
-    return {true, ray.get_origin() + (ray.get_direction() * t)};
+    return glm::vec3();
 }

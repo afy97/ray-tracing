@@ -8,13 +8,13 @@
 
 class Scene {
 private:
-    std::vector<std::shared_ptr<Shape>> scene_objects;
+    std::vector<Shape*> scene_objects;
 
 public:
-    void add_object(std::shared_ptr<Shape> shape);
+    void add_object(Shape* shape);
 
-    std::tuple<bool, glm::vec3, std::shared_ptr<Shape>>
-    get_surface_intersection(Ray ray, std::shared_ptr<Shape> own = nullptr);
+    std::tuple<bool, glm::vec3, Shape*>
+    get_surface_intersection(Ray ray, Shape* own = nullptr);
 
-    glm::vec3 bounce_light(glm::vec3 point, std::shared_ptr<Shape> object, int remaining_bounces = 0);
+    glm::vec3 bounce_light(glm::vec3 point, Shape* object, int remaining_bounces = 0);
 };

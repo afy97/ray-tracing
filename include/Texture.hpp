@@ -3,28 +3,20 @@
 #include "pch.hpp"
 
 class Texture {
-public:
-    struct Color {
-        uint8_t red;
-        uint8_t green;
-        uint8_t blue;
-        uint8_t alpha;
-    };
-
 private:
     const int width;
     const int height;
     const int count;
-    Color* buffer;
+    
+    std::vector<glm::u8vec4> buffer;
+    
     GLuint texture;
-    std::mutex mutex;
 
 public:
     Texture(int width, int height);
-    ~Texture();
 
     void bind_to_program(GLuint shader_program);
-    void update_buffer(const Color* update, int item_count);
+    void update_buffer(std::vector<glm::u8vec4> update);
 
     GLuint get_texture() const { return texture; }
 };

@@ -13,11 +13,13 @@
 #include "model/Scene.hpp"
 #include "model/Sphere.hpp"
 
-static constexpr int width = 4 * 128;
-static constexpr int height = 3 * 128;
-static constexpr int count = width * height;
-static constexpr int samples = 128;
-static constexpr int light_bounces = 3;
+constexpr int width = 4 * 128;
+constexpr int height = 3 * 128;
+constexpr int count = width * height;
+constexpr int samples = 128;
+constexpr int light_bounces = 3;
+constexpr float byte_min = static_cast<float>(std::numeric_limits<uint8_t>().min());
+constexpr float byte_max = static_cast<float>(std::numeric_limits<uint8_t>().max());
 
 int main(int argc, char const* argv[])
 {
@@ -30,7 +32,7 @@ int main(int argc, char const* argv[])
         Canvas canvas;
         Texture texture(width, height);
 
-        std::vector<Texture::Color> buffer(count);
+        std::vector<glm::u8vec4> buffer(count);
         std::mutex guard;
 
         float fov = glm::radians(30.0f);
@@ -52,64 +54,75 @@ int main(int argc, char const* argv[])
         Material blue_material(glm::vec3(0.33f, 0.33f, 1.0f));
         Material emissive_material(glm::vec3(1.0f), 8.0f);
 
+        Plane ground(default_material, -up, up);
+        Plane left_wall(green_material, -right * 3.0f, right);
+        Plane right_wall(red_material, right * 3.0f, -right);
+        Plane back_wall(default_material, forward * 11.0f, -forward);
+        Sphere ball(blue_material, forward * 10.0f, 1.0f);
+        Sphere light(emissive_material, glm::vec3(1.0f, 3.0f, -8.0f), 1.0f);
+
         Scene scene;
-        scene.add_object(std::make_shared<Plane>(default_material, -up, up));
-        scene.add_object(std::make_shared<Plane>(green_material, -right * 3.0f, right));
-        scene.add_object(std::make_shared<Plane>(red_material, right * 3.0f, -right));
-        scene.add_object(std::make_shared<Plane>(default_material, forward * 11.0f, -forward));
-        scene.add_object(std::make_shared<Sphere>(blue_material, forward * 10.0f, 1.0f));
-        scene.add_object(std::make_shared<Sphere>(emissive_material, glm::vec3(1.0f, 3.0f, -8.0f), 1.0f));
+        scene.add_object(&ground);
+        scene.add_object(&left_wall);
+        scene.add_object(&right_wall);
+        scene.add_object(&back_wall);
+        scene.add_object(&ball);
+        scene.add_object(&light);
 
-        auto result = std::async([&]() {
-            std::for_each(std::execution::par, buffer.begin(), buffer.end(), [&](Texture::Color& c) {
-                int index = (&c) - buffer.data();
+        int thread_count = std::thread::hardware_concurrency() - 1;
+        int pixels_per_thread = count / thread_count;
+        int outlier_pixels = count % thread_count;
 
-                float x = (index % width) - (width / 2);
-                float y = (index / width) - (height / 2);
+        std::vector<std::thread> thread_pool;
+        thread_pool.reserve(thread_count);
 
-                glm::vec3 v_y = glm::rotate(forward, y * per_pixel_angle, right);
-                glm::vec3 v_x = glm::rotate(v_y, (-x) * per_pixel_angle, up);
-                glm::vec3 hit_point = origin;
-                glm::vec3 diffuse(0.0f);
+        for (int i = 0; i <= thread_count; i++) {
+            int start_index = i * pixels_per_thread;
+            int end_index = start_index + pixels_per_thread;
 
-                auto [hit, point, object] = scene.get_surface_intersection(Ray(origin, v_x));
+            if (i == thread_count) {
+                end_index = outlier_pixels;
+            }
 
-                if (hit) {
-                    float emission = object->get_material().get_emission();
+            thread_pool.push_back(std::thread(
+                [&](int start, int end) {
+                    for (int index = start; index < end; index++) {
+                        float x = (index % width) - (width / 2);
+                        float y = (index / width) - (height / 2);
 
-                    if (0.0f < emission) {
-                        glm::vec3 color = object->get_material().get_color();
-                        glm::u8vec3 shade = glm::clamp(color * (255.0f * emission), 0.0f, 255.0f);
-                        std::lock_guard lock(guard);
+                        glm::vec3 v_y = glm::rotate(forward, y * per_pixel_angle, right);
+                        glm::vec3 v_x = glm::rotate(v_y, (-x) * per_pixel_angle, up);
+                        glm::vec3 hit_point{origin};
+                        glm::vec3 diffuse{0.0f};
 
-                        buffer[index] = {
-                            .red = shade.r,
-                            .green = shade.g,
-                            .blue = shade.b,
-                            .alpha = 255,
-                        };
-                    } else {
-                        for (int i = 0; i < samples; i++) {
-                            diffuse += scene.bounce_light(point, object, light_bounces);
+                        auto [hit, point, object] = scene.get_surface_intersection(Ray(origin, v_x));
+
+                        if (hit) {
+                            for (int i = 0; i < samples; i++) {
+                                diffuse += scene.bounce_light(point, object, light_bounces);
+                            }
+
+                            std::lock_guard lock(guard);
+                            buffer[index] = glm::u8vec4{glm::clamp(diffuse * (byte_max / samples), byte_min, byte_max), byte_max};
                         }
-
-                        glm::u8vec3 gain = glm::clamp(diffuse * (255.0f / samples), 0.0f, 255.0f);
-                        std::lock_guard lock(guard);
-
-                        buffer[index] = {
-                            .red = gain.r,
-                            .green = gain.g,
-                            .blue = gain.b,
-                            .alpha = 255,
-                        };
                     }
-                }
-            });
+                },
+                start_index,
+                end_index
+            ));
+        }
+
+        std::thread tone_mapping = std::thread([&]() {
+            for (auto& thread : thread_pool) {
+                thread.join();
+            }
+
+            // TODO: tone mapping
         });
 
         app.add_command([&]() {
             std::lock_guard lock(guard);
-            texture.update_buffer(buffer.data(), count);
+            texture.update_buffer(buffer);
         });
 
         app.add_command([&]() {
@@ -122,6 +135,8 @@ int main(int argc, char const* argv[])
         });
 
         app.run();
+
+        tone_mapping.join();
     } catch (std::exception e) {
         std::cerr << e.what() << std::endl;
         throw e;

@@ -12,7 +12,7 @@ public:
     {
     }
 
-    std::tuple<bool, glm::vec3> ray_hit_position(Ray ray) override;
+    glm::vec3 ray_hit_position(Ray ray, bool& hit) override;
 
     glm::vec3 surface_normal(glm::vec3 surface_point) override { return normal; }
 };

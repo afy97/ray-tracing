@@ -47,3 +47,12 @@ add_custom_command(
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${SRC_DIR}/shaders/shader.vert" "${CMAKE_BINARY_DIR}/$<CONFIG>/shaders/shader.vert"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${SRC_DIR}/shaders/shader.frag" "${CMAKE_BINARY_DIR}/$<CONFIG>/shaders/shader.frag"
 )
+
+if (WIN32) 
+    set_target_properties(
+        ${PROJECT_NAME}
+        PROPERTIES
+            LINK_FLAGS
+                "/ENTRY:mainCRTStartup /SUBSYSTEM:WINDOWS"
+    )
+endif()
