@@ -13,17 +13,43 @@
 #include "model/Scene.hpp"
 #include "model/Sphere.hpp"
 
-constexpr int width = 4 * 128;
-constexpr int height = 3 * 128;
-constexpr int count = width * height;
-constexpr int samples = 128;
-constexpr int light_bounces = 3;
 constexpr float byte_min = static_cast<float>(std::numeric_limits<uint8_t>().min());
 constexpr float byte_max = static_cast<float>(std::numeric_limits<uint8_t>().max());
 
 int main(int argc, char const* argv[])
 {
     try {
+        int width = 4 * 128;
+        int height = 3 * 128;
+        int samples = 128;
+        int bounces = 3;
+
+        if (1 < argc) {
+            if (argc % 2 != 0) {
+                for (int i = 1; i < argc; i += 2) {
+                    std::string option(*(argv + i));
+
+                    int value = std::stoi(std::string(*(argv + (i + 1))));
+
+                    if (option == "--width") {
+                        width = std::max(width, value);
+                    } else if (option == "--height") {
+                        height = std::max(height, value);
+                    } else if (option == "--samples") {
+                        samples = std::max(value, 0);
+                    } else if (option == "--bounces") {
+                        bounces = std::max(value, 0);
+                    } else {
+                        throw std::runtime_error("Invalid argument " + option);
+                    }
+                }
+            } else {
+                throw std::runtime_error("Invalid arguments");
+            }
+        }
+
+        int count = width * height;
+
         std::filesystem::path vrt("shaders/shader.vert");
         std::filesystem::path frg("shaders/shader.frag");
 
@@ -99,11 +125,12 @@ int main(int argc, char const* argv[])
 
                         if (hit) {
                             for (int i = 0; i < samples; i++) {
-                                diffuse += scene.bounce_light(point, object, light_bounces);
+                                diffuse += scene.bounce_light(point, object, bounces);
                             }
 
                             std::lock_guard lock(guard);
-                            buffer[index] = glm::u8vec4{glm::clamp(diffuse * (byte_max / samples), byte_min, byte_max), byte_max};
+                            buffer[index] =
+                                glm::u8vec4{glm::clamp(diffuse * (byte_max / samples), byte_min, byte_max), byte_max};
                         }
                     }
                 },
