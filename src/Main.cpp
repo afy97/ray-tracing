@@ -99,6 +99,7 @@ int main(int argc, char const* argv[])
         int pixels_per_thread = count / thread_count;
         int outlier_pixels = count % thread_count;
 
+        std::atomic_bool terminate = false;
         std::vector<std::thread> thread_pool;
         thread_pool.reserve(thread_count);
 
@@ -113,6 +114,10 @@ int main(int argc, char const* argv[])
             thread_pool.push_back(std::thread(
                 [&](int start, int end) {
                     for (int index = start; index < end; index++) {
+                        if (terminate) {
+                            return;
+                        }
+
                         float x = (index % width) - (width / 2);
                         float y = (index / width) - (height / 2);
 
@@ -139,7 +144,7 @@ int main(int argc, char const* argv[])
             ));
         }
 
-        std::thread tone_mapping = std::thread([&]() {
+        auto tone_mapping = std::async([&]() {
             for (auto& thread : thread_pool) {
                 thread.join();
             }
@@ -163,7 +168,7 @@ int main(int argc, char const* argv[])
 
         app.run();
 
-        tone_mapping.join();
+        terminate = true;
     } catch (std::exception e) {
         std::cerr << e.what() << std::endl;
         throw e;
