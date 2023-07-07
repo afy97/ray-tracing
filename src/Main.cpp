@@ -15,14 +15,15 @@
 
 constexpr float byte_min = static_cast<float>(std::numeric_limits<uint8_t>().min());
 constexpr float byte_max = static_cast<float>(std::numeric_limits<uint8_t>().max());
+constexpr float fov = glm::radians(30.0f);
 
 int main(int argc, char const* argv[])
 {
     try {
         int width = 4 * 128;
         int height = 3 * 128;
-        int samples = 128;
-        int bounces = 3;
+        int samples = (1 << 16);
+        int bounces = 4;
 
         if (1 < argc) {
             if (argc % 2 != 0) {
@@ -50,6 +51,8 @@ int main(int argc, char const* argv[])
 
         int count = width * height;
 
+        float per_pixel_angle = fov / height;
+
         std::filesystem::path vrt("shaders/shader.vert");
         std::filesystem::path frg("shaders/shader.frag");
 
@@ -60,14 +63,6 @@ int main(int argc, char const* argv[])
 
         std::vector<glm::u8vec4> buffer(count);
         std::mutex guard;
-
-        float fov = glm::radians(30.0f);
-        float per_pixel_angle = fov / height;
-        float pi = glm::pi<float>();
-        float pi_rsp = 1.0f / pi;
-        float p_w_rsp = 2.0f * pi;
-        float p_w = 1.0f / p_w_rsp;
-        float f_max = std::numeric_limits<float>().max();
 
         glm::vec3 forward(0.0f, 0.0f, -1.0f);
         glm::vec3 right(1.0f, 0.0f, 0.0f);
@@ -95,7 +90,16 @@ int main(int argc, char const* argv[])
         scene.add_object(&ball);
         scene.add_object(&light);
 
-        int thread_count = std::thread::hardware_concurrency() - 1;
+        std::vector<glm::vec3> camera_rays;
+        camera_rays.reserve(count);
+
+        for (int i = 0; i < count; i++) {
+            float x = (i % width) - (width / 2);
+            float y = (i / width) - (height / 2);
+            camera_rays.push_back(glm::rotateY(glm::rotateX(forward, y * per_pixel_angle), (-x) * per_pixel_angle));
+        }
+
+        int thread_count = std::thread::hardware_concurrency();
         int pixels_per_thread = count / thread_count;
         int outlier_pixels = count % thread_count;
 
@@ -108,35 +112,38 @@ int main(int argc, char const* argv[])
             int end_index = start_index + pixels_per_thread;
 
             if (i == thread_count) {
-                end_index = outlier_pixels;
+                if (outlier_pixels) {
+                    end_index = start_index + outlier_pixels;
+                } else {
+                    continue;
+                }
             }
 
             thread_pool.push_back(std::thread(
                 [&](int start, int end) {
-                    for (int index = start; index < end; index++) {
-                        if (terminate) {
-                            return;
-                        }
+                    std::vector<glm::u8vec4> acc(end - start);
+                    std::vector<glm::vec3> diffuse(end - start);
 
-                        float x = (index % width) - (width / 2);
-                        float y = (index / width) - (height / 2);
-
-                        glm::vec3 v_y = glm::rotate(forward, y * per_pixel_angle, right);
-                        glm::vec3 v_x = glm::rotate(v_y, (-x) * per_pixel_angle, up);
-                        glm::vec3 hit_point{origin};
-                        glm::vec3 diffuse{0.0f};
-
-                        auto [hit, point, object] = scene.get_surface_intersection(Ray(origin, v_x));
-
-                        if (hit) {
-                            for (int i = 0; i < samples; i++) {
-                                diffuse += scene.bounce_light(point, object, bounces);
+                    for (int i = 1; i <= samples; i++) {
+                        for (int index = start; index < end; index++) {
+                            if (terminate) {
+                                return;
                             }
 
-                            std::lock_guard lock(guard);
-                            buffer[index] =
-                                glm::u8vec4{glm::clamp(diffuse * (byte_max / samples), byte_min, byte_max), byte_max};
+                            glm::vec3& cr = camera_rays[index];
+                            glm::vec3& dc = diffuse[index - start];
+                            glm::u8vec4& ac = acc[index - start];
+
+                            auto [hit, point, object] = scene.get_surface_intersection(Ray(origin, cr));
+
+                            if (hit) {
+                                dc += (scene.bounce_light(point, object, bounces) - dc) / static_cast<float>(i);
+                                ac = glm::u8vec4{glm::clamp(dc * byte_max, byte_min, byte_max), byte_max};
+                            }
                         }
+
+                        std::lock_guard lock(guard);
+                        std::memcpy(buffer.data() + start, acc.data(), acc.size() * sizeof(*acc.data()));
                     }
                 },
                 start_index,

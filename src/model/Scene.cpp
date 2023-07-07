@@ -5,7 +5,7 @@ void Scene::add_object(Shape* shape)
     scene_objects.push_back(shape);
 }
 
-std::tuple<bool, glm::vec3, Shape*> Scene::get_surface_intersection(Ray ray, Shape* own)
+std::tuple<bool, glm::vec3, Shape*> Scene::get_surface_intersection(Ray ray, Shape* own) const
 {
     std::tuple<bool, glm::vec3, Shape*> result;
 
@@ -31,7 +31,7 @@ std::tuple<bool, glm::vec3, Shape*> Scene::get_surface_intersection(Ray ray, Sha
     return result;
 }
 
-glm::vec3 Scene::bounce_light(glm::vec3 point, Shape* object, int remaining_bounces)
+glm::vec3 Scene::bounce_light(glm::vec3 point, Shape* object, int remaining_bounces) const
 {
     constexpr float pi = glm::pi<float>();
     constexpr float pi_rsp = 1.0f / pi;
